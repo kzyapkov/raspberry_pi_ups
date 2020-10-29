@@ -21,8 +21,8 @@ class Powerpi:
     BYTE_ICHG =  0b00010000 #1A charging current limit
     BAT_CAPACITY = 2900 #Battery capacity in mAh
     CURRENT_DRAW = 2000 #Current draw in mAh approximately
-    VBAT_LOW = 3.2
-    VBAT_MAX = 4.208
+    VBAT_LOW = 3.5
+    VBAT_MAX = 4.1
     #Charge Voltage
     #BYTE_VREG = 0b00000010 #3.84v
     #BYTE_VREG = 0b00010010 #3.9V
@@ -35,7 +35,7 @@ class Powerpi:
     #BYTE_VREG = 0b11000010 #4.608V
     ###############################################
 
-    REG_ICHG = 0x04 
+    REG_ICHG = 0x04
     REG_ICHGR = 0x12
     REG_CONV_ADC = 0x02
     REG_BATFET = 0x09
@@ -51,11 +51,11 @@ class Powerpi:
     REG_FAULT = 0x0c
     REG_IBAT = 0x12
     REG_VBUS = 0x11
-    
+
 
     def __init__(self):
-        pass        
-        
+        pass
+
     def initialize(self):
         try:
             self.bus = smbus.SMBus(self.PORT)
@@ -68,12 +68,12 @@ class Powerpi:
             logging.info("UPS initialized")
             return 0
         except Exception as ex:
-            logging.error("Initialization failed, check connection to the UPS:"+ str(ex))
-            return 1 
-    
+            logging.exception("Initialization failed, check connection to the UPS:"+ str(ex))
+            return 1
+
     def _int_to_bool_list(self,num):
         return [bool(num & (1<<n)) for n in range(8)]
-    
+
     def _vbat_convert(self,vbat_byte):
         vbat_bool = self._int_to_bool_list(vbat_byte)
         vbat = 2.304
@@ -83,9 +83,9 @@ class Powerpi:
         vbat += vbat_bool[3] * 0.160
         vbat += vbat_bool[2] * 0.08
         vbat += vbat_bool[1] * 0.04
-        vbat += vbat_bool[0] * 0.02   
+        vbat += vbat_bool[0] * 0.02
         return vbat
-    
+
     def _ibat_convert(self,ibat_byte):
         ibat_bool = self._int_to_bool_list(ibat_byte)
         ibat = 0
@@ -117,7 +117,7 @@ class Powerpi:
         elif bat_charge_percent > 1:
             bat_charge_percent = 1
         return bat_charge_percent
-    
+
     def _calc_time_left(self,vbat):
         time_left = int(self._calc_bat_charge_percent(vbat) * 60 * self.BAT_CAPACITY / self.CURRENT_DRAW)
         if time_left < 0:
@@ -131,8 +131,8 @@ class Powerpi:
             self.bus.write_byte_data(self.ADDRESS, self.REG_CONV_ADC, self.BYTE_CONV_ADC_START)
             time.sleep(2)
             status = self.bus.read_byte_data(self.ADDRESS, self.REG_STATUS)
-            status = self._int_to_bool_list(int(status))            
-            vbat = self._vbat_convert(self.bus.read_byte_data(self.ADDRESS, self.REG_VBAT))            
+            status = self._int_to_bool_list(int(status))
+            vbat = self._vbat_convert(self.bus.read_byte_data(self.ADDRESS, self.REG_VBAT))
             ibat = self._ibat_convert(self.bus.read_byte_data(self.ADDRESS, self.REG_ICHGR))
             vbus = self._vbus_convert(self.bus.read_byte_data(self.ADDRESS, self.REG_VBUS))
             self.bus.write_byte_data(self.ADDRESS, self.REG_CONV_ADC, self.BYTE_CONV_ADC_STOP)
@@ -140,7 +140,7 @@ class Powerpi:
             logging.error("An exception occurred while reading values from the UPS: " + str(ex))
             time.sleep(2)
             return 1, None
-        
+
         if status[2]:
             power_status = "Connected"
             time_left = -1
@@ -156,9 +156,9 @@ class Powerpi:
             charge_status = "Pre-Charge"
         else:
             charge_status = "Not Charging"
-        
-        
-        data = { 
+
+
+        data = {
             'PowerInputStatus': power_status,
             'InputVoltage' : round(vbus,3),
             'ChargeStatus' : charge_status,
